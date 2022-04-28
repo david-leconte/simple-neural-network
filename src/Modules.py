@@ -30,19 +30,16 @@ class Linear(Module):
         self._input = input
         self._output = output
 
-        self._parameters = np.random.random((input, output))
+        self._parameters = np.random.uniform(-5, 5, (input, output))
         self._gradient = np.zeros((input, output))
 
     def forward(self, X):
-        assert X.shape[1] == self._input
         return X @ self._parameters
 
     def backward_update_gradient(self, input, delta):
-        assert input.shape[0] == delta.shape[0]
         self._gradient += input.T @ delta
 
     def backward_delta(self, input, delta):
-        assert delta.shape[0] == self._output
         return delta @ self._parameters.T
 
 
@@ -57,3 +54,14 @@ class Sigmoid(Module):
 
     def backward_delta(self, input, delta):
         return delta * self._lambda * (np.exp(-self._lambda * input) / ((1 + np.exp(-self._lambda * input)) ** 2))
+
+
+class TanH(Module):
+    def __init__(self):
+        super(TanH, self).__init__()
+
+    def forward(self, X):
+        return np.tanh(X)
+
+    def backward_delta(self, input, delta):
+        return delta * (1 - np.tanh(input) ** 2)

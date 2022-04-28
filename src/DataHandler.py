@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 class DataHandler(object):
     """ This class loads data then used by the network. """
 
-    USPStrain = "../data/USPS_train.txt"
-    USPStest = "../data/USPS_test.txt"
+    USPStrain = "./data/USPS_train.txt"
+    USPStest = "./data/USPS_test.txt"
 
     def loadUSPStrain():
-        DataHandler.loadUSPS(DataHandler.USPStrain)
+        return DataHandler.loadUSPS(DataHandler.USPStrain)
 
     def loadUSPStest():
-        DataHandler.loadUSPS(DataHandler.USPStest)
+        return DataHandler.loadUSPS(DataHandler.USPStest)
 
     def loadUSPS(fn):
         with open(fn, "r") as f:
@@ -24,6 +24,7 @@ class DataHandler(object):
         return tmp[:, 1:], tmp[:, 0].astype(int)
 
     def getUSPS(l, datax, datay):
+        assert len(datax) == len(datay)
         if type(l) != list:
             resx = datax[datay == l, :]
             resy = datay[datay == l]
@@ -31,8 +32,10 @@ class DataHandler(object):
 
         tmp = list(zip(*[DataHandler.getUSPS(i, datax, datay) for i in l]))
         tmpx, tmpy = np.vstack(tmp[0]), np.hstack(tmp[1])
-        return tmpx, tmpy
 
-    def show_usps(data):
+        permutation = np.random.permutation(len(tmpx))
+        return tmpx[permutation], tmpy[permutation]
+
+    def showUSPS(data):
         plt.imshow(data.reshape((16, 16)),
                    interpolation="nearest", cmap="gray")
