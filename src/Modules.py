@@ -1,20 +1,22 @@
 import numpy as np
 
 
-class Module(object):
+class Module:
     def __init__(self):
         self._parameters = None
         self._gradient = None
 
     def zero_grad(self):
-        self._gradient = np.zeros(self._gradient.shape)
+        if(self._gradient is not None):
+            self._gradient = np.zeros(self._gradient.shape)
 
     def forward(self, X):
         pass
 
     def update_parameters(self, gradient_step=1e-3):
-        self._parameters -= gradient_step * self._gradient
-        self.zero_grad()
+        if(self._parameters is not None and self._gradient is not None):
+            self._parameters -= gradient_step * self._gradient
+            self.zero_grad()
 
     def backward_update_gradient(self, input, delta):
         pass

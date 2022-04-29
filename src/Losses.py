@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Loss(object):
+class Loss:
     def forward(self, y, yhat):
         pass
 
