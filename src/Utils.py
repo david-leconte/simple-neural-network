@@ -39,6 +39,7 @@ class DataHandler:
         return tmpx[permutation], tmpy[permutation]
 
     def show_usps(data):
+        plt.axis("off")
         plt.imshow(data.reshape((16, 16)),
                    interpolation="nearest", cmap="gray")
 
@@ -87,11 +88,21 @@ class Optim:
     def step(self, batch_x, batch_y):
         self._net.backward(batch_x, batch_y, self._loss, self._eps)
 
-    def SGD(self, datax, datay, batch_size, nb_steps):
+    def SGD(self, datax, datay, batch_size, nb_steps, loss_length_modulo=0):
+        if loss_length_modulo > 0: 
+            losses = []
+
         for i in range(nb_steps):
             indexes = np.random.choice([i for i in range(len(datax))], size = batch_size)
             batch_x = datax[indexes]
             batch_y = datay[indexes]
             self.step(batch_x, batch_y)
             
-        return self._net
+            if loss_length_modulo > 0 and i % loss_length_modulo == 0:
+                losses_array = self._loss.forward(datay, self._net.forward(datax)[-1])
+                losses.append(np.mean(losses_array))
+
+        if loss_length_modulo > 0:   
+            return self._net, np.array(losses)
+        
+        else: return self._net

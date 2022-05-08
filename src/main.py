@@ -1,8 +1,9 @@
+import time
 from matplotlib import pyplot as plt
 import numpy as np
 
 from Utils import DataHandler, Sequential, Optim
-from Losses import MSELoss
+from Losses import MSELoss, BCELoss
 from Modules import Linear, Sigmoid, TanH
 
 # # Testing linear regression (part I)
@@ -83,21 +84,21 @@ from Modules import Linear, Sigmoid, TanH
 # plt.title("Perceptron approximation")
 # plt.show()
 
-# Testing digits classification
-alltrainx, alltrainy = DataHandler.load_usps_train()
-alltestX,alltestY = DataHandler.load_usps_test()
+# # Testing digits classification
+# alltrainx, alltrainy = DataHandler.load_usps_train()
+# alltestX,alltestY = DataHandler.load_usps_test()
 
-neg = 6
-pos = 9
+# neg = 6
+# pos = 9
 
-dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
-testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
+# dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
+# testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
 
-dataY = np.where(dataY == pos, 1, 0)
-testY = np.where(testY == pos, 1, 0)
+# dataY = np.where(dataY == pos, 1, 0)
+# testY = np.where(testY == pos, 1, 0)
 
-dataY = np.expand_dims(dataY, axis=1)
-testY = np.expand_dims(testY, axis=1)
+# dataY = np.expand_dims(dataY, axis=1)
+# testY = np.expand_dims(testY, axis=1)
 
 # # Without sequence utils
 # linear1 = Linear(256, 64)
@@ -144,30 +145,105 @@ testY = np.expand_dims(testY, axis=1)
 
 # print("Digits classification original and updated loss:", original_loss, updated_loss)
 
-# Same with the utils Sequential and Optim
+# # Same with the utils Sequential and Optim
+
+# net = Sequential()
+# net.append_modules([Linear(256, 64), 
+#         TanH(), 
+#         Linear(64, 1), 
+#         Sigmoid()])
+
+# optim = Optim(net)
+# mse = MSELoss()
+
+# testYhat = net.forward(testX)[-1]
+# original_loss = np.mean(mse.forward(testY, testYhat))
+
+# net = optim.SGD(dataX, dataY, len(dataX) // 2, 500)
+# testYhat = net.forward(testX)[-1]
+# updated_loss = np.mean(mse.forward(testY, testYhat))
+
+# print("Digits classification original and updated loss:", original_loss, updated_loss)
+
+# computed_pos = testX[np.where(np.rint(testYhat.ravel()) == 1)]
+
+# index = np.random.randint(0, len(computed_pos))
+# DataHandler.show_usps(computed_pos[index])
+# plt.title("Digit classified as " + str(pos) + 
+#     " by network picked randomly (" + str(index) + ")")
+# plt.show()
+
+# Testing a compression network
+alltrainx, alltrainy = DataHandler.load_usps_train()
+alltestX, alltestY = DataHandler.load_usps_test()
+
+neg = 6
+pos = 9
+
+dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
+testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
+
+testX = np.where(testX < 0.5, 0, 1)
+
+size = len(dataX)
+batch_size = 1
+steps = int(size * 10)
+loss_array_length = steps // 20
+
+exec_start = time.time()
 
 net = Sequential()
-net.append_modules([Linear(256, 64), 
-        TanH(), 
-        Linear(64, 1), 
-        Sigmoid()])
+net.append_modules([Linear(256, 64),
+        TanH(),
+        Linear(64, 16),
+        TanH(),
+        Linear(16, 64), 
+        TanH(),
+        Linear(64, 256),
+        Sigmoid()
+    ])
 
-optim = Optim(net)
-mse = MSELoss()
+loss = BCELoss
+optim = Optim(net, loss=loss)
+bce = loss()
 
-testYhat = net.forward(testX)[-1]
-original_loss = np.mean(mse.forward(testY, testYhat))
+testXhat = net.forward(testX)[-1]
+testXhat = np.where(testXhat < 0.5, 0, 1)
+original_loss = np.mean(bce.forward(testX, testXhat))
 
-net = optim.SGD(dataX, dataY, len(dataX) // 2, 500)
-testYhat = net.forward(testX)[-1]
-updated_loss = np.mean(mse.forward(testY, testYhat))
+net, losses = optim.SGD(dataX[:size], dataX[:size], batch_size, 
+    steps, loss_length_modulo=loss_array_length)
+
+testXhat = net.forward(testX)[-1]
+testXhat = np.where(testXhat < 0.5, 0, 1)
+testXMiddle = net.forward(testX)[-5]
+updated_loss = np.mean(bce.forward(testX, testXhat))
+
+exec_time = time.time() - exec_start
 
 print("Digits classification original and updated loss:", original_loss, updated_loss)
+print("Execution in", str(exec_time), "s")
 
-computed_pos = testX[np.where(np.rint(testYhat.ravel()) == 1)]
+# nb_original = len(np.unique(testX, axis=0))
+# nb_decompressed = len(np.unique(testXhat, axis=0))
 
-index = np.random.randint(0, len(computed_pos))
-DataHandler.show_usps(computed_pos[index])
-plt.title("Digit classified as " + str(pos) + 
-    " by network picked randomly (" + str(index) + ")")
+# print("How many different decompressed images ", nb_decompressed
+#     , "vs original number of images", nb_original)
+
+examples_shown = 6
+
+for i in range(1, examples_shown * 3, 3):
+    index = np.random.randint(0, len(testX) - examples_shown)
+    plt.subplot(examples_shown, 3, i)
+    DataHandler.show_usps(testX[index])
+    plt.subplot(examples_shown, 3, i+1)
+    DataHandler.show_usps(testXhat[index])
+    plt.subplot(examples_shown, 3, i+2)
+    plt.imshow(testXMiddle[index].reshape((4, 4)),
+                   interpolation="nearest", cmap="gray")
+
+plt.show()
+
+plt.plot(range(0, steps, loss_array_length), losses)
+plt.title("Loss evolution")
 plt.show()
