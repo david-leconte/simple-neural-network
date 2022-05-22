@@ -17,9 +17,24 @@ class MSELoss(Loss):
         return 2 * (yhat - y)
 
 
-class BCELoss(Loss):
+class CELoss(Loss):
+    def softmax(yhat):
+        yhat_norm = yhat - np.max(yhat, axis=1, keepdims=True)
+        return np.exp(yhat_norm) / np.reshape(np.repeat(np.sum(np.exp(yhat_norm), axis=1), yhat.shape[1]), yhat.shape)
+
     def forward(self, y, yhat):
-        return -(y * np.maximum(-100, np.log(yhat + 1e-10)) + (1 - y) * np.maximum(-100, np.log(1 - yhat + 1e-10)))
+        softmax = CELoss.softmax(yhat)
+        return - np.log(softmax[np.where(y == 1)] + 1e-20)
 
     def backward(self, y, yhat):
-        return -((y / (yhat + 1e-10)) - ((1 - y) / (1 - yhat + 1e-10)))
+        delta_softmax = CELoss.softmax(yhat)
+        delta_softmax[np.where(y == 1)] -= 1
+
+        return delta_softmax
+
+class BCELoss(Loss):
+    def forward(self, y, yhat):
+        return -(y * np.maximum(-100, np.log(yhat + 1e-20)) + (1 - y) * np.maximum(-100, np.log(1 - yhat + 1e-20)))
+
+    def backward(self, y, yhat):
+        return -((y / (yhat + 1e-20)) - ((1 - y) / (1 - yhat + 1e-20)))
