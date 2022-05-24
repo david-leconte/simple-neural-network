@@ -1,6 +1,9 @@
 import warnings
-
+import sys
+import cProfile
 import time
+import os
+
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -8,368 +11,447 @@ from Utils import DataHandler, Sequential, Optim
 from Losses import MSELoss, CELoss, BCELoss
 from Modules import Linear, Sigmoid, TanH, Conv1D, MaxPool1D, ReLU, Flatten
 
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
+# warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-# # Testing linear regression (part I)
-# d = 3
-# mse = MSELoss()
-# linear = Linear(d, 1)
+"""
+Using the Linear module and MSELoss for linear regression
+"""
 
-# size = 1000
-# X = np.random.randint(-3, 3, size=(size, d))
-# W = np.array([4, 0.22, -3])
-# Y = np.expand_dims(X @ W, axis=1)
 
-# Yhat = linear.forward(X)
-# original_loss = np.mean(mse.forward(Y, Yhat))
+def linear_regression(plot=True):
+    d = 2 if plot else 4
 
-# for i in range(len(X)):
-#     x = X[i:i+1]
-#     y = Y[i]
-#     yhat = linear.forward(x)
+    mse = MSELoss()
+    linear = Linear(d, 1)
 
-#     delta = mse.backward(y, yhat)
+    size = 1000
+    X = np.random.randint(-3, 3, size=(size, d))
+    W = np.random.randn(d) * 3
+    Y = np.expand_dims(X @ W, axis=1)
 
-#     linear.backward_update_gradient(x, delta)
-#     linear.update_parameters()
-#     linear.zero_grad()
+    Yhat = linear.forward(X)
+    original_loss = np.mean(mse.forward(Y, Yhat))
 
-# Yhat = linear.forward(X)
-# updated_loss = np.mean(mse.forward(Y, Yhat))
+    for i in range(len(X)):
+        x = X[i:i+1]
+        y = Y[i]
+        yhat = linear.forward(x)
 
-# print("Linear regression original and updated loss + parameters :", original_loss, updated_loss, linear._parameters)
+        delta = mse.backward(y, yhat)
 
-# # Testing perceptron
-# d = 2
-# mse = MSELoss()
-# linear = Linear(d, 1)
-# sigmoid = Sigmoid()
+        linear.backward_update_gradient(x, delta)
+        linear.update_parameters()
+        linear.zero_grad()
 
-# size = 5000
+    Yhat = linear.forward(X)
+    updated_loss = np.mean(mse.forward(Y, Yhat))
 
-# X = np.zeros((size, d))
-# X[:size // 2] = np.random.normal((-2, -2), 1, size=(size // 2, 2))
-# X[size // 2:] = np.random.normal((2, 2), 1, size=(size // 2, 2))
+    print("Linear regression original and updated loss + parameters :",
+          original_loss, updated_loss)
+    print("Original parameters:", W, ", computed parameters :",
+          np.ravel(linear._parameters))
 
-# permuted_indexes = np.random.permutation(size)
-# X = X[permuted_indexes]
+    if plot:
+        ax = plt.axes(projection='3d')
+        ax.scatter3D(X[:, 0], X[:, 1], X @ W, c='green',
+                     label="Original function", s=40)
+        ax.scatter3D(X[:, 0], X[:, 1], X @ np.ravel(linear._parameters),
+                     c='red', label="Computed function", s=2)
 
-# Y = np.concatenate((np.zeros(size // 2), np.ones(size // 2)))[permuted_indexes]
-# Y = np.expand_dims(Y, axis=1)
+        plt.legend()
 
-# Yhat = sigmoid.forward(linear.forward(X))
-# original_loss = np.mean(mse.forward(Y, Yhat))
+        title = "3D linear regression, W = " + str(W)
+        plt.title(title)
 
-# for i in range(len(X)):
-#     x = X[i:i+1]
-#     y = Y[i]
+        plt.show()
 
-#     res_lin = linear.forward(x)
-#     yhat = sigmoid.forward(res_lin)
 
-#     delta_loss = mse.backward(y, yhat)
-#     delta_sigmoid = sigmoid.backward_delta(res_lin, delta_loss)
+"""
+Using the Linear and Sigmoid module with MSELoss to test a perceptron
+"""
 
-#     linear.backward_update_gradient(x, delta_sigmoid)
-#     linear.update_parameters()
-#     linear.zero_grad()
 
-# res_lin = linear.forward(X)
-# Yhat = sigmoid.forward(res_lin)
-# updated_loss = np.mean(mse.forward(Y, np.rint(Yhat)))
+def perceptron(plot=True):
+    d = 2
+    mse = MSELoss()
+    linear = Linear(d, 1)
+    sigmoid = Sigmoid()
 
-# print("Perceptron original and updated loss + parameters :", original_loss, updated_loss, linear._parameters)
+    size = 5000
 
-# a, b = linear._parameters[:, 0]
-# V = np.linspace(-3, 3, 1000)
+    X = np.zeros((size, d))
+    X[:size // 2] = np.random.normal((-2, -2), 1, size=(size // 2, 2))
+    X[size // 2:] = np.random.normal((2, 2), 1, size=(size // 2, 2))
 
-# plt.plot(V, (-a / b) * V)
-# plt.scatter(X[:, 0], X[:, 1])
-# plt.title("Perceptron approximation")
-# plt.show()
+    permuted_indexes = np.random.permutation(size)
+    X = X[permuted_indexes]
 
-# # Testing digits classification
-# alltrainx, alltrainy = DataHandler.load_usps_train()
-# alltestX,alltestY = DataHandler.load_usps_test()
+    Y = np.concatenate(
+        (np.zeros(size // 2), np.ones(size // 2)))[permuted_indexes]
+    Y = np.expand_dims(Y, axis=1)
 
-# neg = 6
-# pos = 9
+    Yhat = sigmoid.forward(linear.forward(X))
+    original_loss = np.mean(mse.forward(Y, Yhat))
 
-# dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
-# testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
+    for i in range(len(X)):
+        x = X[i:i+1]
+        y = Y[i]
 
-# dataY = np.where(dataY == pos, 1, 0)
-# testY = np.where(testY == pos, 1, 0)
+        res_lin = linear.forward(x)
+        yhat = sigmoid.forward(res_lin)
 
-# dataY = np.expand_dims(dataY, axis=1)
-# testY = np.expand_dims(testY, axis=1)
+        delta_loss = mse.backward(y, yhat)
+        delta_sigmoid = sigmoid.backward_delta(res_lin, delta_loss)
 
-# # Without sequence utils
-# linear1 = Linear(256, 64)
-# linear2 = Linear(64, 1)
-# mse = MSELoss()
-# tanh = TanH()
-# sigmoid = Sigmoid()
+        linear.backward_update_gradient(x, delta_sigmoid)
+        linear.update_parameters()
+        linear.zero_grad()
 
-# res_lin = linear1.forward(testX)
-# res_tanh = tanh.forward(res_lin)
-# res_lin2 = linear2.forward(res_tanh)
-# testYhat = sigmoid.forward(res_lin2)
+    res_lin = linear.forward(X)
+    Yhat = sigmoid.forward(res_lin)
+    updated_loss = np.mean(mse.forward(Y, np.rint(Yhat)))
 
-# original_loss = np.mean(mse.forward(testY, testYhat))
+    print("Perceptron original and updated loss + parameters :",
+          original_loss, updated_loss, linear._parameters)
+
+    accuracy = (1 - np.mean(Y != np.rint(Yhat))) * 100
+    print(accuracy, "% accuracy")
+
+    if plot:
+        a, b = linear._parameters[:, 0]
+        V = np.linspace(-4, 4, 1000)
+
+        plt.plot(V, (-a / b) * V, c="black")
+        plt.scatter(X[np.where(Y == 0), 0], X[np.where(Y == 0), 1], c="red", s=1)
+        plt.scatter(X[np.where(Y == 1), 0], X[np.where(Y == 1), 1], c="green", s=1)
+        plt.title("Perceptron approximation")
+        plt.show()
 
-# for i in range(1000):
-#     x = dataX
-#     y = dataY
 
-#     res_lin = linear1.forward(x)
-#     res_tanh = tanh.forward(res_lin)
-#     res_lin2 = linear2.forward(res_tanh)
-#     yhat = sigmoid.forward(res_lin2)
+"""
+Using Linear, Sigmoid, TanH modules and MSELoss for binary digits classification (USPS)
+"""
 
-#     delta_mse = mse.backward(y, yhat)
-#     delta_sig = sigmoid.backward_delta(res_lin2, delta_mse)
-#     delta_lin2 = linear2.backward_delta(res_tanh, delta_sig)
-#     delta_tanh = tanh.backward_delta(res_lin, delta_lin2)
-#     delta_lin = linear1.backward_delta(x, delta_tanh)
+
+def binary_digits_classif(SGD=True, plot=True):
+    alltrainx, alltrainy = DataHandler.load_usps_train()
+    alltestX, alltestY = DataHandler.load_usps_test()
 
-#     linear2.backward_update_gradient(res_tanh, delta_sig)
-#     linear2.update_parameters()
-#     linear2.zero_grad()
-#     linear1.backward_update_gradient(x, delta_tanh)
-#     linear1.update_parameters()
-#     linear1.zero_grad()
+    neg = 6
+    pos = 9
 
-# res_lin = linear1.forward(testX)
-# res_tanh = tanh.forward(res_lin)
-# res_lin2 = linear2.forward(res_tanh)
-# testYhat = sigmoid.forward(res_lin2)
+    dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
+    testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
 
-# updated_loss = np.mean(mse.forward(testY, testYhat))
+    dataY = np.where(dataY == pos, 1, 0)
+    testY = np.where(testY == pos, 1, 0)
 
-# print("Digits classification original and updated loss:", original_loss, updated_loss)
+    dataY = np.expand_dims(dataY, axis=1)
+    testY = np.expand_dims(testY, axis=1)
 
-# # Same with the utils Sequential and Optim
+    # Without sequence utils
+    if not SGD:
+        linear1 = Linear(256, 64)
+        linear2 = Linear(64, 1)
+        mse = MSELoss()
+        tanh = TanH()
+        sigmoid = Sigmoid()
 
-# net = Sequential()
-# net.append_modules([Linear(256, 64), 
-#         TanH(), 
-#         Linear(64, 1), 
-#         Sigmoid()])
+        res_lin = linear1.forward(testX)
+        res_tanh = tanh.forward(res_lin)
+        res_lin2 = linear2.forward(res_tanh)
+        testYhat = sigmoid.forward(res_lin2)
 
-# optim = Optim(net)
-# mse = MSELoss()
+        original_loss = np.mean(mse.forward(testY, testYhat))
 
-# testYhat = net.forward(testX)[-1]
-# original_loss = np.mean(mse.forward(testY, testYhat))
+        for i in range(1000):
+            x = dataX
+            y = dataY
 
-# net = optim.SGD(dataX, dataY, len(dataX) // 2, 500)
-# testYhat = net.forward(testX)[-1]
-# updated_loss = np.mean(mse.forward(testY, testYhat))
+            res_lin = linear1.forward(x)
+            res_tanh = tanh.forward(res_lin)
+            res_lin2 = linear2.forward(res_tanh)
+            yhat = sigmoid.forward(res_lin2)
 
-# print("Digits classification original and updated loss:", original_loss, updated_loss)
+            delta_mse = mse.backward(y, yhat)
+            delta_sig = sigmoid.backward_delta(res_lin2, delta_mse)
+            delta_lin2 = linear2.backward_delta(res_tanh, delta_sig)
+            delta_tanh = tanh.backward_delta(res_lin, delta_lin2)
+            delta_lin = linear1.backward_delta(x, delta_tanh)
 
-# computed_pos = testX[np.where(np.rint(testYhat.ravel()) == 1)]
+            linear2.backward_update_gradient(res_tanh, delta_sig)
+            linear2.update_parameters()
+            linear2.zero_grad()
+            linear1.backward_update_gradient(x, delta_tanh)
+            linear1.update_parameters()
+            linear1.zero_grad()
 
-# index = np.random.randint(0, len(computed_pos))
-# DataHandler.show_usps(computed_pos[index])
-# plt.title("Digit classified as " + str(pos) + 
-#     " by network picked randomly (" + str(index) + ")")
-# plt.show()
+        res_lin = linear1.forward(testX)
+        res_tanh = tanh.forward(res_lin)
+        res_lin2 = linear2.forward(res_tanh)
+        testYhat = sigmoid.forward(res_lin2)
 
-# # Testing multi-class digits classification
+        updated_loss = np.mean(mse.forward(testY, testYhat))
 
-# dataX, dataY = DataHandler.load_usps_train()
-# testX, testY = DataHandler.load_usps_test()
+    # Same with the utils Sequential and Optim
+    else:
+        net = Sequential()
+        net.append_modules([Linear(256, 64),
+                            TanH(),
+                            Linear(64, 1),
+                            Sigmoid()])
 
-# dataY1hot = np.zeros((dataY.size, 10))
-# dataY1hot[np.arange(dataY.size), dataY] = 1
+        optim = Optim(net)
+        mse = MSELoss()
 
-# testY1hot = np.zeros((testY.size, 10))
-# testY1hot[np.arange(testY.size), testY] = 1
+        testYhat = net.forward(testX)[-1]
+        original_loss = np.mean(mse.forward(testY, testYhat))
 
-# batch_size = 5
-# steps=len(dataX)
+        net = optim.SGD(dataX, dataY, len(dataX) // 2, 500)
+        testYhat = net.forward(testX)[-1]
+        updated_loss = np.mean(mse.forward(testY, testYhat))
 
-# net = Sequential()
-# net.append_modules([Linear(256, 64),
-#         TanH(),
-#         Linear(64, 10),
-#     ])
+    print("Binary digits classification original and updated loss:",
+          original_loss, updated_loss)
 
-# optim = Optim(net, CELoss)
-# ce = CELoss()
+    accuracy = (1 - np.mean(testY != np.rint(testYhat))) * 100
+    print(accuracy, "% accuracy")
 
-# testYhat = net.forward(testX)[-1]
-# original_loss = np.mean(ce.forward(testY1hot, testYhat))
+    if plot:
+        for i in range(1, examples_shown + 1):
+            index = np.random.randint(0, len(testX) - examples_shown)
+            ax = plt.subplot(examples_shown, 1, i)
+            DataHandler.show_usps(testX[index])
 
-# net, losses = optim.SGD(dataX, dataY1hot, batch_size, steps, loss_length_modulo=10)
-# testYhat = net.forward(testX)[-1]
-# updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+            real_class = pos if testY[index] == 1 else neg
+            computed_class = pos if np.rint(testYhat[index]) == 1 else neg
 
-# print("Digits classification original and updated loss:", original_loss, updated_loss)
+            title = "Real : " + str(real_class) + ", predicted : " + \
+                str(computed_class) + " (index " + str(index) + ")"
+            ax.set_title(title, {"fontsize": 10})
 
-# yhat_classes = np.argmax(testYhat, axis=1)
-# diff = (1-np.mean(testY != yhat_classes))*100
-# print(diff, "% accuracy")
+        plt.tight_layout()
+        plt.show()
 
 
-# examples_shown = 6
+"""
+Sequence utils and modules quoted above + SoftMax and CELoss for multiclass digits classification
+"""
 
-# for i in range(1, examples_shown):
-#     index = np.random.randint(0, len(testX) - examples_shown)
-#     ax = plt.subplot(examples_shown, 1, i)
-#     DataHandler.show_usps(testX[index])
 
-#     title = "Real : " + str(testY[index]) + ", predicted : " + str(np.argmax(testYhat[index])) + " (index " + str(index) + ")" 
-#     ax.set_title(title, { "fontsize": 10 })
+def multiclass_digits_classif(plot=True):
+    dataX, dataY = DataHandler.load_usps_train()
+    testX, testY = DataHandler.load_usps_test()
 
-# plt.tight_layout()
-# plt.show()
+    dataY1hot = np.zeros((dataY.size, 10))
+    dataY1hot[np.arange(dataY.size), dataY] = 1
 
-# plt.plot(range(0, steps, 10), losses)
-# plt.title("Multiclass loss evolution")
-# plt.show()
+    testY1hot = np.zeros((testY.size, 10))
+    testY1hot[np.arange(testY.size), testY] = 1
 
-# # Testing a compression network
-# alltrainx, alltrainy = DataHandler.load_usps_train()
-# alltestx, alltesty = DataHandler.load_usps_test()
+    batch_size = 5
+    steps = len(dataX)
 
-# # neg = 6
-# # pos = 9
+    net = Sequential()
+    net.append_modules([Linear(256, 64),
+                        TanH(),
+                        Linear(64, 10),
+                        ])
 
-# # dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
-# # testX, testY = DataHandler.get_usps([neg, pos], alltestx, alltesty)
+    optim = Optim(net, CELoss)
+    ce = CELoss()
 
-# dataX, dataY = alltrainx, alltrainy
-# testX, testY = alltestx, alltesty
+    testYhat = net.forward(testX)[-1]
+    original_loss = np.mean(ce.forward(testY1hot, testYhat))
 
-# # dataX = np.where(dataX < 0.5, 0, 1)
-# # testX = np.where(testX < 0.5, 0, 1)
+    net, losses = optim.SGD(dataX, dataY1hot, batch_size,
+                            steps, loss_length_modulo=10)
+    testYhat = net.forward(testX)[-1]
+    updated_loss = np.mean(ce.forward(testY1hot, testYhat))
 
-# size = len(dataX)
-# batch_size = 15
-# steps = size * 20
-# loss_array_length = steps // 20
+    print("Multiclass digits classification original and updated loss:",
+          original_loss, updated_loss)
 
-# exec_start = time.time()
+    yhat_classes = np.argmax(testYhat, axis=1)
+    accuracy = (1 - np.mean(testY != yhat_classes)) * 100
+    print(accuracy, "% accuracy")
 
-# net = Sequential()
-# net.append_modules([
-#     # Encoder
-#     Linear(256, 200),
-#     TanH(),
-#     Linear(200, 64),
-#     TanH(),
-#     Linear(64, 16),
-#     Sigmoid(),
+    if plot:
+        for i in range(1, examples_shown + 1):
+            index = np.random.randint(0, len(testX) - examples_shown)
+            ax = plt.subplot(examples_shown, 1, i)
+            DataHandler.show_usps(testX[index])
 
-#     # Decoder
-#     Linear(16, 64), 
-#     TanH(),
-#     Linear(64, 200),
-#     TanH(),
-#     Linear(200, 256),
-#     Sigmoid()
-# ])
+            title = "Real : " + str(testY[index]) + ", predicted : " + str(
+                np.argmax(testYhat[index])) + " (index " + str(index) + ")"
+            ax.set_title(title, {"fontsize": 10})
 
-# loss = BCELoss
-# optim = Optim(net, loss=loss)
-# bce = loss()
+        plt.tight_layout()
+        plt.show()
 
-# testXhat = net.forward(testX)[-1]
-# original_loss = np.mean(bce.forward(testX, testXhat))
+        plt.plot(range(0, steps, 10), losses)
+        plt.title("Multiclass loss evolution")
+        plt.show()
 
-# net, losses = optim.SGD(dataX[:size], dataX[:size], batch_size, 
-#     steps, loss_length_modulo=loss_array_length)
 
-# testXhat = net.forward(testX)[-1]
+"""
+Sequence utils and modules Linear, TanH, Sigmoid + BCELos for testing a compression
+"""
 
-# testXMiddle = net.forward(testX)[-7]
-# updated_loss = np.mean(bce.forward(testX, testXhat))
 
-# exec_time = time.time() - exec_start
+def compression_net(plot=True):
+    alltrainx, alltrainy = DataHandler.load_usps_train()
+    alltestx, alltesty = DataHandler.load_usps_test()
 
-# print("Digits classification original and updated loss:", original_loss, updated_loss)
-# print("Execution in", str(exec_time), "s")
+    # neg = 6
+    # pos = 9
 
-# # nb_original = len(np.unique(testX, axis=0))
-# # nb_decompressed = len(np.unique(testXhat, axis=0))
+    # dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
+    # testX, testY = DataHandler.get_usps([neg, pos], alltestx, alltesty)
 
-# # print("How many different decompressed images ", nb_decompressed
-# #     , "vs original number of images", nb_original)
+    dataX = alltrainx
+    testX = alltestx
 
-# examples_shown = 6
+    # dataX = np.where(dataX < 0.5, 0, 1)
+    # testX = np.where(testX < 0.5, 0, 1)
 
-# for i in range(1, examples_shown * 3, 3):
-#     index = np.random.randint(0, len(testX) - examples_shown)
-#     plt.subplot(examples_shown, 3, i)
-#     DataHandler.show_usps(testX[index])
-#     plt.subplot(examples_shown, 3, i+1)
-#     DataHandler.show_usps(testXhat[index])
-#     plt.subplot(examples_shown, 3, i+2)
-#     plt.imshow(testXMiddle[index].reshape((4, 4)),
-#                    interpolation="nearest", cmap="gray")
+    batch_size = 1
+    steps = len(dataX) * 15
+    loss_array_length = steps // 20
 
-# plt.show()
+    net = Sequential()
+    net.append_modules([
+        # Encoder
+        Linear(256, 200),
+        TanH(),
+        Linear(200, 100),
+        TanH(),
+        Linear(100, 16),
+        Sigmoid(),
 
-# plt.plot(range(0, steps, loss_array_length), losses)
-# plt.title("Loss evolution")
-# plt.show()
-
-# Testing convolution networks
-
-dataX, dataY = DataHandler.load_usps_train()
-testX, testY = DataHandler.load_usps_test()
-
-dataY1hot = np.zeros((dataY.size, 10))
-dataY1hot[np.arange(dataY.size), dataY] = 1
-
-testY1hot = np.zeros((testY.size, 10))
-testY1hot[np.arange(testY.size), testY] = 1
-
-steps = 500
-
-net = Sequential()
-net.append_modules([Conv1D(3, 1, 32),
-    MaxPool1D(2, 2),
-    Flatten(),
-    Linear(4064, 100),
-    ReLU(),
-    Linear(100, 10)
+        # Decoder
+        Linear(16, 100),
+        TanH(),
+        Linear(100, 200),
+        TanH(),
+        Linear(200, 256),
+        Sigmoid()
     ])
 
-optim = Optim(net, CELoss)
-ce = CELoss()
+    loss = BCELoss
+    optim = Optim(net, loss=loss, eps=1e-5)
+    bce = loss()
 
-testYhat = net.forward(testX)[-1]
-original_loss = np.mean(ce.forward(testY1hot, testYhat))
+    testXhat = net.forward(testX)[-1]
+    original_loss = np.mean(bce.forward(testX, testXhat))
 
-net, losses = optim.SGD(dataX, dataY1hot, 1, steps, loss_length_modulo=10)
-testYhat = net.forward(testX)[-1]
-updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+    net, losses = optim.SGD(dataX[:len(dataX)], dataX[:len(dataX)], batch_size,
+                            steps, loss_length_modulo=loss_array_length)
 
-print("Digits classification original and updated loss:", original_loss, updated_loss)
+    testXhat = net.forward(testX)[-1]
 
-yhat_classes = np.argmax(testYhat, axis=1)
-diff = (1-np.mean(testY != yhat_classes))*100
-print(diff, "% accuracy")
+    testXMiddle = net.forward(testX)[-7]
+    updated_loss = np.mean(bce.forward(testX, testXhat))
 
-testYhat1hot = np.rint(CELoss.softmax(testYhat))
+    print("Digits rebuild original and updated loss:",
+          original_loss, updated_loss)
+
+    if plot:
+        for i in range(1, examples_shown * 3, 3):
+            index = np.random.randint(0, len(testX) - examples_shown)
+            plt.subplot(examples_shown, 3, i)
+            DataHandler.show_usps(testX[index])
+            plt.subplot(examples_shown, 3, i+1)
+            DataHandler.show_usps(testXhat[index])
+            plt.subplot(examples_shown, 3, i+2)
+            plt.imshow(testXMiddle[index].reshape((4, 4)),
+                       interpolation="nearest", cmap="gray")
+
+        plt.show()
+
+        plt.plot(range(0, steps, loss_array_length), losses)
+        plt.title("Loss evolution")
+        plt.show()
+
+
+"""
+Using 1 dimension convolution network for multiclass digits classification
+"""
+
+
+def convolution_digits_classif(plot=True):
+    dataX, dataY = DataHandler.load_usps_train()
+    testX, testY = DataHandler.load_usps_test()
+
+    dataY1hot = np.zeros((dataY.size, 10))
+    dataY1hot[np.arange(dataY.size), dataY] = 1
+
+    testY1hot = np.zeros((testY.size, 10))
+    testY1hot[np.arange(testY.size), testY] = 1
+
+    steps = 250
+
+    net = Sequential()
+    net.append_modules([Conv1D(3, 1, 32),
+                        MaxPool1D(2, 2),
+                        Flatten(),
+                        Linear(4064, 100),
+                        ReLU(),
+                        Linear(100, 10)
+                        ])
+
+    optim = Optim(net, CELoss)
+    ce = CELoss()
+
+    testYhat = net.forward(testX)[-1]
+    original_loss = np.mean(ce.forward(testY1hot, testYhat))
+
+    net, losses = optim.SGD(dataX, dataY1hot, 1, steps, loss_length_modulo=10)
+    testYhat = net.forward(testX)[-1]
+    updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+
+    print("Digits classification original and updated loss:",
+          original_loss, updated_loss)
+
+    yhat_classes = np.argmax(testYhat, axis=1)
+    diff = (1-np.mean(testY != yhat_classes))*100
+    print(diff, "% accuracy")
+
+    if plot:
+        for i in range(1, examples_shown):
+            index = np.random.randint(0, len(testX) - examples_shown)
+            ax = plt.subplot(examples_shown, 1, i)
+            DataHandler.show_usps(testX[index])
+
+            title = "Real : " + str(testY[index]) + ", predicted : " + str(
+                np.argmax(testYhat[index])) + " (index " + str(index) + ")"
+            ax.set_title(title, {"fontsize": 10})
+
+        plt.tight_layout()
+        plt.show()
+
+        plt.plot(range(0, steps, 10), losses)
+        plt.title("Multiclass loss evolution")
+        plt.show()
+
+
+plot = True if "--plot" in sys.argv else False
+profiling = True if "--profile" in sys.argv else False
+current_dir = os.path.dirname(__file__)
 
 examples_shown = 6
 
-for i in range(1, examples_shown):
-    index = np.random.randint(0, len(testX) - examples_shown)
-    ax = plt.subplot(examples_shown, 1, i)
-    DataHandler.show_usps(testX[index])
+if(profiling):
+    profiler = cProfile.Profile()
+    profiler.enable()
 
-    title = "Real : " + str(testY[index]) + ", predicted : " + str(np.argmax(testYhat[index])) + " (index " + str(index) + ")" 
-    ax.set_title(title, { "fontsize": 10 })
+# linear_regression(plot=plot)
+# perceptron(plot=plot)
+# binary_digits_classif(plot=plot)
+# multiclass_digits_classif(plot=plot)
+compression_net(plot=plot)
+# convolution_digits_classif(plot=plot)
 
-plt.tight_layout()
-plt.show()
-
-plt.plot(range(0, steps, 10), losses)
-plt.title("Multiclass loss evolution")
-plt.show()
+if(profiling):
+    profiler.disable()
+    profiler.dump_stats("profiles/" + str(time.time()) + ".prof")

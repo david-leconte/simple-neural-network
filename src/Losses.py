@@ -32,6 +32,7 @@ class CELoss(Loss):
 
         return delta_softmax
 
+
 class BCELoss(Loss):
     def forward(self, y, yhat):
         return -(y * np.maximum(-100, np.log(yhat + 1e-20)) + (1 - y) * np.maximum(-100, np.log(1 - yhat + 1e-20)))
