@@ -6,7 +6,7 @@ import numpy as np
 
 from Utils import DataHandler, Sequential, Optim
 from Losses import MSELoss, CELoss, BCELoss
-from Modules import Linear, Sigmoid, TanH
+from Modules import Linear, Sigmoid, TanH, Conv1D, MaxPool1D, ReLU, Flatten
 
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
@@ -177,60 +177,79 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 #     " by network picked randomly (" + str(index) + ")")
 # plt.show()
 
-# Testing multi-class digits classification
+# # Testing multi-class digits classification
 
-dataX, dataY = DataHandler.load_usps_train()
-testX, testY = DataHandler.load_usps_test()
+# dataX, dataY = DataHandler.load_usps_train()
+# testX, testY = DataHandler.load_usps_test()
 
-dataY1hot = np.zeros((dataY.size, 10))
-dataY1hot[np.arange(dataY.size), dataY] = 1
+# dataY1hot = np.zeros((dataY.size, 10))
+# dataY1hot[np.arange(dataY.size), dataY] = 1
 
-testY1hot = np.zeros((testY.size, 10))
-testY1hot[np.arange(testY.size), testY] = 1
+# testY1hot = np.zeros((testY.size, 10))
+# testY1hot[np.arange(testY.size), testY] = 1
 
-batch_size = 20
-steps=len(dataX)
+# batch_size = 5
+# steps=len(dataX)
 
-net = Sequential()
-net.append_modules([Linear(256, 64),
-        TanH(),
-        Linear(64, 10),
-    ])
+# net = Sequential()
+# net.append_modules([Linear(256, 64),
+#         TanH(),
+#         Linear(64, 10),
+#     ])
 
-optim = Optim(net, CELoss)
-ce = CELoss()
+# optim = Optim(net, CELoss)
+# ce = CELoss()
 
-testYhat = net.forward(testX)[-1]
-original_loss = np.mean(ce.forward(testY1hot, testYhat))
+# testYhat = net.forward(testX)[-1]
+# original_loss = np.mean(ce.forward(testY1hot, testYhat))
 
-net, losses = optim.SGD(dataX, dataY1hot, batch_size, steps, loss_length_modulo=10)
-testYhat = net.forward(testX)[-1]
-updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+# net, losses = optim.SGD(dataX, dataY1hot, batch_size, steps, loss_length_modulo=10)
+# testYhat = net.forward(testX)[-1]
+# updated_loss = np.mean(ce.forward(testY1hot, testYhat))
 
-accuracy = (1 - np.mean(testY1hot != np.rint(CELoss.softmax(testYhat)))) * 100
+# print("Digits classification original and updated loss:", original_loss, updated_loss)
 
-print("Digits classification original and updated loss:", original_loss, updated_loss)
-print("Accuracy : ", accuracy, "%")
+# yhat_classes = np.argmax(testYhat, axis=1)
+# diff = (1-np.mean(testY != yhat_classes))*100
+# print(diff, "% accuracy")
 
-plt.plot(range(0, steps, 10), losses)
-plt.title("Multiclass loss evolution")
-plt.show()
+
+# examples_shown = 6
+
+# for i in range(1, examples_shown):
+#     index = np.random.randint(0, len(testX) - examples_shown)
+#     ax = plt.subplot(examples_shown, 1, i)
+#     DataHandler.show_usps(testX[index])
+
+#     title = "Real : " + str(testY[index]) + ", predicted : " + str(np.argmax(testYhat[index])) + " (index " + str(index) + ")" 
+#     ax.set_title(title, { "fontsize": 10 })
+
+# plt.tight_layout()
+# plt.show()
+
+# plt.plot(range(0, steps, 10), losses)
+# plt.title("Multiclass loss evolution")
+# plt.show()
 
 # # Testing a compression network
 # alltrainx, alltrainy = DataHandler.load_usps_train()
-# alltestX, alltestY = DataHandler.load_usps_test()
+# alltestx, alltesty = DataHandler.load_usps_test()
 
-# neg = 6
-# pos = 9
+# # neg = 6
+# # pos = 9
 
-# dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
-# testX, testY = DataHandler.get_usps([neg, pos], alltestX, alltestY)
+# # dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
+# # testX, testY = DataHandler.get_usps([neg, pos], alltestx, alltesty)
 
-# testX = np.where(testX < 0.5, 0, 1)
+# dataX, dataY = alltrainx, alltrainy
+# testX, testY = alltestx, alltesty
+
+# # dataX = np.where(dataX < 0.5, 0, 1)
+# # testX = np.where(testX < 0.5, 0, 1)
 
 # size = len(dataX)
-# batch_size = 1
-# steps = int(size * 10)
+# batch_size = 15
+# steps = size * 20
 # loss_array_length = steps // 20
 
 # exec_start = time.time()
@@ -238,15 +257,19 @@ plt.show()
 # net = Sequential()
 # net.append_modules([
 #     # Encoder
-#     Linear(256, 64),
+#     Linear(256, 200),
+#     TanH(),
+#     Linear(200, 64),
 #     TanH(),
 #     Linear(64, 16),
-#     TanH(),
+#     Sigmoid(),
 
 #     # Decoder
 #     Linear(16, 64), 
 #     TanH(),
-#     Linear(64, 256),
+#     Linear(64, 200),
+#     TanH(),
+#     Linear(200, 256),
 #     Sigmoid()
 # ])
 
@@ -255,15 +278,14 @@ plt.show()
 # bce = loss()
 
 # testXhat = net.forward(testX)[-1]
-# testXhat = np.where(testXhat < 0.5, 0, 1)
 # original_loss = np.mean(bce.forward(testX, testXhat))
 
 # net, losses = optim.SGD(dataX[:size], dataX[:size], batch_size, 
 #     steps, loss_length_modulo=loss_array_length)
 
 # testXhat = net.forward(testX)[-1]
-# testXhat = np.where(testXhat < 0.5, 0, 1)
-# testXMiddle = net.forward(testX)[-5]
+
+# testXMiddle = net.forward(testX)[-7]
 # updated_loss = np.mean(bce.forward(testX, testXhat))
 
 # exec_time = time.time() - exec_start
@@ -294,3 +316,60 @@ plt.show()
 # plt.plot(range(0, steps, loss_array_length), losses)
 # plt.title("Loss evolution")
 # plt.show()
+
+# Testing convolution networks
+
+dataX, dataY = DataHandler.load_usps_train()
+testX, testY = DataHandler.load_usps_test()
+
+dataY1hot = np.zeros((dataY.size, 10))
+dataY1hot[np.arange(dataY.size), dataY] = 1
+
+testY1hot = np.zeros((testY.size, 10))
+testY1hot[np.arange(testY.size), testY] = 1
+
+steps = 500
+
+net = Sequential()
+net.append_modules([Conv1D(3, 1, 32),
+    MaxPool1D(2, 2),
+    Flatten(),
+    Linear(4064, 100),
+    ReLU(),
+    Linear(100, 10)
+    ])
+
+optim = Optim(net, CELoss)
+ce = CELoss()
+
+testYhat = net.forward(testX)[-1]
+original_loss = np.mean(ce.forward(testY1hot, testYhat))
+
+net, losses = optim.SGD(dataX, dataY1hot, 1, steps, loss_length_modulo=10)
+testYhat = net.forward(testX)[-1]
+updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+
+print("Digits classification original and updated loss:", original_loss, updated_loss)
+
+yhat_classes = np.argmax(testYhat, axis=1)
+diff = (1-np.mean(testY != yhat_classes))*100
+print(diff, "% accuracy")
+
+testYhat1hot = np.rint(CELoss.softmax(testYhat))
+
+examples_shown = 6
+
+for i in range(1, examples_shown):
+    index = np.random.randint(0, len(testX) - examples_shown)
+    ax = plt.subplot(examples_shown, 1, i)
+    DataHandler.show_usps(testX[index])
+
+    title = "Real : " + str(testY[index]) + ", predicted : " + str(np.argmax(testYhat[index])) + " (index " + str(index) + ")" 
+    ax.set_title(title, { "fontsize": 10 })
+
+plt.tight_layout()
+plt.show()
+
+plt.plot(range(0, steps, 10), losses)
+plt.title("Multiclass loss evolution")
+plt.show()
