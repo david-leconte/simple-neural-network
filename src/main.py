@@ -252,19 +252,19 @@ def multiclass_digits_classif(plot=True):
     optim = Optim(net, CELoss)
     ce = CELoss()
 
-    testYhat = net.forward(testX)[-1]
-    original_loss = np.mean(ce.forward(testY1hot, testYhat))
+    testYhat1hot = net.forward(testX)[-1]
+    original_loss = np.mean(ce.forward(testY1hot, testYhat1hot))
 
     net, losses = optim.SGD(dataX, dataY1hot, batch_size,
-                            steps, loss_length_modulo=10)
-    testYhat = net.forward(testX)[-1]
-    updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+                            steps, losses_save_modulo=10)
+    testYhat1hot = net.forward(testX)[-1]
+    updated_loss = np.mean(ce.forward(testY1hot, testYhat1hot))
 
     print("Multiclass digits classification original and updated loss:",
           original_loss, updated_loss)
 
-    yhat_classes = np.argmax(testYhat, axis=1)
-    accuracy = (1 - np.mean(testY != yhat_classes)) * 100
+    testYhat = np.argmax(testYhat1hot, axis=1)
+    accuracy = (1 - np.mean(testY != testYhat)) * 100
     print(accuracy, "% accuracy")
 
     if plot:
@@ -274,7 +274,7 @@ def multiclass_digits_classif(plot=True):
             DataHandler.show_usps(testX[index])
 
             title = "Real : " + str(testY[index]) + ", predicted : " + str(
-                np.argmax(testYhat[index])) + " (index " + str(index) + ")"
+                testYhat[index]) + " (index " + str(index) + ")"
             ax.set_title(title, {"fontsize": 10})
 
         plt.tight_layout()
@@ -283,6 +283,8 @@ def multiclass_digits_classif(plot=True):
         plt.plot(range(0, steps, 10), losses)
         plt.title("Multiclass loss evolution")
         plt.show()
+
+        DataHandler.plot_confusion_matrix(testY, testYhat, 10)
 
 
 def compression_net(plot=True):
@@ -372,7 +374,7 @@ def convolution_digits_classif(plot=True):
     testY1hot = np.zeros((testY.size, 10))
     testY1hot[np.arange(testY.size), testY] = 1
 
-    steps = 250
+    steps = 500
 
     net = Sequential()
     net.append_modules([Conv1D(3, 1, 32),
@@ -383,21 +385,21 @@ def convolution_digits_classif(plot=True):
                         Linear(100, 10)
                         ])
 
-    optim = Optim(net, CELoss)
+    optim = Optim(net, CELoss, eps=1e-3)
     ce = CELoss()
 
-    testYhat = net.forward(testX)[-1]
-    original_loss = np.mean(ce.forward(testY1hot, testYhat))
+    testYhat1hot = net.forward(testX)[-1]
+    original_loss = np.mean(ce.forward(testY1hot, testYhat1hot))
 
-    net, losses = optim.SGD(dataX, dataY1hot, 1, steps, loss_length_modulo=10)
-    testYhat = net.forward(testX)[-1]
-    updated_loss = np.mean(ce.forward(testY1hot, testYhat))
+    net, losses = optim.SGD(dataX, dataY1hot, 1, steps, losses_save_modulo=10)
+    testYhat1hot = net.forward(testX)[-1]
+    updated_loss = np.mean(ce.forward(testY1hot, testYhat1hot))
 
     print("Digits classification original and updated loss:",
           original_loss, updated_loss)
 
-    yhat_classes = np.argmax(testYhat, axis=1)
-    diff = (1-np.mean(testY != yhat_classes))*100
+    testYhat = np.argmax(testYhat1hot, axis=1)
+    diff = (1 - np.mean(testY != testYhat)) * 100
     print(diff, "% accuracy")
 
     if plot:
@@ -407,7 +409,7 @@ def convolution_digits_classif(plot=True):
             DataHandler.show_usps(testX[index])
 
             title = "Real : " + str(testY[index]) + ", predicted : " + str(
-                np.argmax(testYhat[index])) + " (index " + str(index) + ")"
+                testYhat[index]) + " (index " + str(index) + ")"
             ax.set_title(title, {"fontsize": 10})
 
         plt.tight_layout()
@@ -416,6 +418,8 @@ def convolution_digits_classif(plot=True):
         plt.plot(range(0, steps, 10), losses)
         plt.title("Multiclass loss evolution")
         plt.show()
+
+        DataHandler.plot_confusion_matrix(testY, testYhat, 10)
 
 
 plot = True if "--plot" in sys.argv else False
@@ -431,8 +435,8 @@ if(profiling):
 # linear_regression(plot=plot)
 # perceptron(plot=plot)
 # binary_digits_classif(plot=plot)
-# multiclass_digits_classif(plot=plot)
-compression_net(plot=plot)
+multiclass_digits_classif(plot=plot)
+# compression_net(plot=plot)
 # convolution_digits_classif(plot=plot)
 
 if(profiling):

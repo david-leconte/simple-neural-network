@@ -45,6 +45,23 @@ class DataHandler:
         plt.imshow(data.reshape((16, 16)),
                    interpolation="nearest", cmap="gray")
 
+    def plot_confusion_matrix(y, yhat, size):
+        matrix = np.zeros((size, size))
+
+        for i in range(y.size):
+            real_class = int(y[i])
+            computed_class = int(yhat[i])
+
+            matrix[real_class, computed_class] +=1
+
+        plt.matshow(matrix)
+        plt.colorbar()
+        
+        plt.xlabel("Real class")
+        plt.ylabel("Predicted class")
+        plt.title("Classification confusion matrix")
+        plt.show()
+
 
 class Sequential:
     def __init__(self):
