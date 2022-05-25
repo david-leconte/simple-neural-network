@@ -13,12 +13,10 @@ from Modules import Linear, Sigmoid, TanH, Conv1D, MaxPool1D, ReLU, Flatten
 
 # warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-"""
-Using the Linear module and MSELoss for linear regression
-"""
-
 
 def linear_regression(plot=True):
+    """Using the Linear module and MSELoss for linear regression"""
+
     d = 2 if plot else 4
 
     mse = MSELoss()
@@ -66,12 +64,9 @@ def linear_regression(plot=True):
         plt.show()
 
 
-"""
-Using the Linear and Sigmoid module with MSELoss to test a perceptron
-"""
-
-
 def perceptron(plot=True):
+    """ Using the Linear and Sigmoid module with MSELoss to test a perceptron """
+
     d = 2
     mse = MSELoss()
     linear = Linear(d, 1)
@@ -122,18 +117,17 @@ def perceptron(plot=True):
         V = np.linspace(-4, 4, 1000)
 
         plt.plot(V, (-a / b) * V, c="black")
-        plt.scatter(X[np.where(Y == 0), 0], X[np.where(Y == 0), 1], c="red", s=1)
-        plt.scatter(X[np.where(Y == 1), 0], X[np.where(Y == 1), 1], c="green", s=1)
+        plt.scatter(X[np.where(Y == 0), 0],
+                    X[np.where(Y == 0), 1], c="red", s=1)
+        plt.scatter(X[np.where(Y == 1), 0],
+                    X[np.where(Y == 1), 1], c="green", s=1)
         plt.title("Perceptron approximation")
         plt.show()
 
 
-"""
-Using Linear, Sigmoid, TanH modules and MSELoss for binary digits classification (USPS)
-"""
-
-
 def binary_digits_classif(SGD=True, plot=True):
+    """ Using Linear, Sigmoid, TanH modules and MSELoss for binary digits classification (USPS) """
+
     alltrainx, alltrainy = DataHandler.load_usps_train()
     alltestX, alltestY = DataHandler.load_usps_test()
 
@@ -234,12 +228,9 @@ def binary_digits_classif(SGD=True, plot=True):
         plt.show()
 
 
-"""
-Sequence utils and modules quoted above + SoftMax and CELoss for multiclass digits classification
-"""
-
-
 def multiclass_digits_classif(plot=True):
+    """ Sequence utils and modules quoted above + SoftMax and CELoss for multiclass digits classification """
+
     dataX, dataY = DataHandler.load_usps_train()
     testX, testY = DataHandler.load_usps_test()
 
@@ -294,12 +285,9 @@ def multiclass_digits_classif(plot=True):
         plt.show()
 
 
-"""
-Sequence utils and modules Linear, TanH, Sigmoid + BCELos for testing a compression
-"""
-
-
 def compression_net(plot=True):
+    """ Sequence utils and modules Linear, TanH, Sigmoid + BCELos for testing a compression """
+
     alltrainx, alltrainy = DataHandler.load_usps_train()
     alltestx, alltesty = DataHandler.load_usps_test()
 
@@ -309,48 +297,46 @@ def compression_net(plot=True):
     # dataX, dataY = DataHandler.get_usps([neg, pos], alltrainx, alltrainy)
     # testX, testY = DataHandler.get_usps([neg, pos], alltestx, alltesty)
 
-    dataX = alltrainx
-    testX = alltestx
+    dataX = alltrainx / 2
+    testX = alltestx / 2
 
     # dataX = np.where(dataX < 0.5, 0, 1)
     # testX = np.where(testX < 0.5, 0, 1)
 
-    batch_size = 1
-    steps = len(dataX) * 15
-    loss_array_length = steps // 20
+    batch_size = 100
+    max_steps = 100000
+    loss_array_length = 1000
+
+    compression = 10
 
     net = Sequential()
     net.append_modules([
         # Encoder
-        Linear(256, 200),
+        Linear(256, 64),
         TanH(),
-        Linear(200, 100),
+        Linear(64, compression),
         TanH(),
-        Linear(100, 16),
-        Sigmoid(),
 
         # Decoder
-        Linear(16, 100),
+        Linear(compression, 64),
         TanH(),
-        Linear(100, 200),
-        TanH(),
-        Linear(200, 256),
+        Linear(64, 256),
         Sigmoid()
     ])
 
     loss = BCELoss
-    optim = Optim(net, loss=loss, eps=1e-5)
+    optim = Optim(net, loss=loss)
     bce = loss()
 
     testXhat = net.forward(testX)[-1]
     original_loss = np.mean(bce.forward(testX, testXhat))
 
-    net, losses = optim.SGD(dataX[:len(dataX)], dataX[:len(dataX)], batch_size,
-                            steps, loss_length_modulo=loss_array_length)
-
+    net, losses = optim.SGD(dataX, dataX, batch_size,
+                            max_steps, losses_save_modulo=loss_array_length, early_stop=0.32)
     testXhat = net.forward(testX)[-1]
 
-    testXMiddle = net.forward(testX)[-7]
+    sig = Sigmoid()
+    testXMiddle = sig.forward(net.forward(testX)[-5])
     updated_loss = np.mean(bce.forward(testX, testXhat))
 
     print("Digits rebuild original and updated loss:",
@@ -364,22 +350,19 @@ def compression_net(plot=True):
             plt.subplot(examples_shown, 3, i+1)
             DataHandler.show_usps(testXhat[index])
             plt.subplot(examples_shown, 3, i+2)
-            plt.imshow(testXMiddle[index].reshape((4, 4)),
+            plt.imshow(testXMiddle[index].reshape((2, 5)),
                        interpolation="nearest", cmap="gray")
 
         plt.show()
 
-        plt.plot(range(0, steps, loss_array_length), losses)
+        plt.plot(np.arange(len(losses)) * loss_array_length, losses)
         plt.title("Loss evolution")
         plt.show()
 
 
-"""
-Using 1 dimension convolution network for multiclass digits classification
-"""
-
-
 def convolution_digits_classif(plot=True):
+    """ Using 1 dimension convolution network for multiclass digits classification """
+
     dataX, dataY = DataHandler.load_usps_train()
     testX, testY = DataHandler.load_usps_test()
 

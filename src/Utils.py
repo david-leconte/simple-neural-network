@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -88,8 +90,8 @@ class Optim:
     def step(self, batch_x, batch_y):
         self._net.backward(batch_x, batch_y, self._loss, self._eps)
 
-    def SGD(self, datax, datay, batch_size, nb_steps, loss_length_modulo=0):
-        if loss_length_modulo > 0:
+    def SGD(self, datax, datay, batch_size, nb_steps, losses_save_modulo=0, early_stop: float = None):
+        if losses_save_modulo > 0:
             losses = []
 
         for i in range(nb_steps):
@@ -99,13 +101,18 @@ class Optim:
             batch_y = datay[indexes]
             self.step(batch_x, batch_y)
 
-            if loss_length_modulo > 0 and i % loss_length_modulo == 0:
+            if losses_save_modulo > 0 and i % losses_save_modulo == 0:
                 losses_array = self._loss.forward(
                     datay, self._net.forward(datax)[-1])
-                losses.append(np.mean(losses_array))
 
-        if loss_length_modulo > 0:
-            return self._net, np.array(losses)
+                loss = np.mean(losses_array)
+                losses.append(loss)
 
-        else:
-            return self._net
+                if np.min(losses) == loss:
+                    self._best_net = copy.deepcopy(self._net)
+                
+                if early_stop is not None and loss <= early_stop:
+                    losses = np.array(losses)
+                    return self._best_net, losses[:np.argmin(losses)]
+
+        return self._net, np.array(losses) if losses_save_modulo > 0 else self._net
